@@ -21,10 +21,20 @@ jobs:
           xorriso \
           wget \
           rsync
+          - name: Download UUP Dump script
+  run: |
+    git clone https://github.com/uup-dump/uup-dump-linux.git uup
 
-    - name: Download Windows 11 ISO
-      run: |
-        wget -O win11.iso https://software-download.microsoft.com/download/pr/Win11_24H2_English_x64.iso
+- name: Build Windows 11 ISO from UUP (24H2)
+  run: |
+    cd uup
+    ./uup_download_linux.sh \
+      26100 \
+      amd64 \
+      en-us \
+      Professional \
+      iso
+
 
     - name: Extract ISO
       run: |
