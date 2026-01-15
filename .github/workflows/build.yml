@@ -1,106 +1,41 @@
-name: Build Tiny11 Core ISO (Cloud)
+name: Build Tiny11 Core ISO (Official, Cloud)
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Download Tiny11 Builder
       run: |
-        sudo apt update
-        sudo apt install -y \
-          wimtools \
-          grub-pc-bin \
-          grub-common \
-          xorriso \
-          rsync \
-          cabextract \
-          aria2 \
-          curl \
-          jq \
-          python3
+        git clone https://github.com/ntdevlabs/tiny11builder.git
 
-    # -------------------------------------------------
-    # DOWNLOAD REAL UUP DUMP (CORRECT REPO)
-    # -------------------------------------------------
-    - name: Download UUP Dump (official)
+    - name: Download Windows 11 ISO
+      shell: powershell
       run: |
-        mkdir uup
-        curl -L https://github.com/uup-dump/uup-dump/archive/refs/heads/master.tar.gz \
-          | tar -xz --strip-components=1 -C uup
-        chmod +x uup/uup_download_linux.sh
+        Invoke-WebRequest `
+          -Uri "https://software-download.microsoft.com/download/pr/Win11_23H2_English_x64.iso" `
+          -OutFile "win11.iso"
 
-    # -------------------------------------------------
-    # BUILD WINDOWS 11 ISO FROM OFFICIAL MICROSOFT UUP
-    # -------------------------------------------------
-    - name: Build Windows 11 24H2 ISO
+    - name: Mount Windows 11 ISO
+      shell: powershell
       run: |
-        cd uup
-        ./uup_download_linux.sh \
-          26100 \
-          amd64 \
-          en-us \
-          Professional \
-          iso
+        Mount-DiskImage -ImagePath win11.iso
 
-    # -------------------------------------------------
-    # EXTRACT ISO
-    # -------------------------------------------------
-    - name: Extract Windows ISO
+    - name: Run Tiny11 Coremaker
+      shell: powershell
       run: |
-        mkdir iso mount
-        sudo mount -o loop uup/*.ISO mount
-        rsync -a mount/ iso/
-        sudo umount mount
+        cd tiny11builder
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        .\tiny11Coremaker.ps1
 
-    # -------------------------------------------------
-    # EXTRACT INSTALL.WIM
-    # -------------------------------------------------
-    - name: Extract install.wim
-      run: |
-        mkdir wim
-        wimlib-imagex extract iso/sources/install.wim 1 --dest-dir=wim
-
-    # -------------------------------------------------
-    # CORE STRIPPING (SAFE MINIMAL)
-    # -------------------------------------------------
-    - name: Tiny11 Core stripping
-      run: |
-        rm -rf wim/Program\ Files
-        rm -rf wim/Program\ Files\ \(x86\)
-        rm -rf wim/Windows/SystemApps
-        rm -rf wim/Windows/Media
-        rm -rf wim/Windows/Web
-        rm -rf wim/Windows/Help
-        rm -rf wim/Windows/WinSxS/Backup
-        rm -rf wim/Users/Default/AppData
-
-    # -------------------------------------------------
-    # REBUILD INSTALL.WIM
-    # -------------------------------------------------
-    - name: Rebuild install.wim
-      run: |
-        mv iso/sources/install.wim iso/sources/install.wim.bak
-        wimlib-imagex capture wim iso/sources/install.wim --compress=recovery
-
-    # -------------------------------------------------
-    # CREATE BOOTABLE ISO
-    # -------------------------------------------------
-    - name: Create Tiny11 Core ISO
-      run: |
-        grub-mkrescue -o tiny11-core.iso iso
-
-    # -------------------------------------------------
-    # UPLOAD RESULT
-    # -------------------------------------------------
-    - name: Upload ISO artifact
+    - name: Upload Tiny11 Core ISO
       uses: actions/upload-artifact@v4
       with:
         name: tiny11-core-iso
-        path: tiny11-core.iso
+        path: tiny11builder\tiny11.iso
