@@ -15,25 +15,31 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y \
-          git \
           wimtools \
           grub-pc-bin \
           grub-common \
           xorriso \
-          wget \
           rsync \
           cabextract \
-          aria2
+          aria2 \
+          curl
 
-    # ---- BUILD WINDOWS 11 ISO FROM OFFICIAL UUP SERVERS ----
-    - name: Download UUP Dump (Linux)
+    # -----------------------------
+    # DOWNLOAD UUP DUMP (NO GIT)
+    # -----------------------------
+    - name: Download UUP Dump (Linux) via tarball
       run: |
-        git clone https://github.com/uup-dump/uup-dump-linux.git uup
+        mkdir uup
+        curl -L https://github.com/uup-dump/uup-dump-linux/archive/refs/heads/master.tar.gz \
+          | tar -xz --strip-components=1 -C uup
+        chmod +x uup/uup_download_linux.sh
 
-    - name: Build Windows 11 24H2 ISO (UUP)
+    # -----------------------------
+    # BUILD WINDOWS 11 ISO (OFFICIAL)
+    # -----------------------------
+    - name: Build Windows 11 24H2 ISO from UUP
       run: |
         cd uup
-        chmod +x uup_download_linux.sh
         ./uup_download_linux.sh \
           26100 \
           amd64 \
@@ -41,7 +47,9 @@ jobs:
           Professional \
           iso
 
-    # ---- EXTRACT ISO ----
+    # -----------------------------
+    # EXTRACT ISO
+    # -----------------------------
     - name: Extract Windows ISO
       run: |
         mkdir iso mount
@@ -49,13 +57,17 @@ jobs:
         rsync -a mount/ iso/
         sudo umount mount
 
-    # ---- EXTRACT INSTALL.WIM ----
+    # -----------------------------
+    # EXTRACT INSTALL.WIM
+    # -----------------------------
     - name: Extract install.wim
       run: |
         mkdir wim
         wimlib-imagex extract iso/sources/install.wim 1 --dest-dir=wim
 
-    # ---- CORE STRIPPING (SAFE MINIMAL) ----
+    # -----------------------------
+    # CORE STRIPPING (SAFE)
+    # -----------------------------
     - name: Tiny11 Core stripping
       run: |
         rm -rf wim/Program\ Files
@@ -67,18 +79,24 @@ jobs:
         rm -rf wim/Windows/WinSxS/Backup
         rm -rf wim/Users/Default/AppData
 
-    # ---- REBUILD INSTALL.WIM ----
+    # -----------------------------
+    # REBUILD INSTALL.WIM
+    # -----------------------------
     - name: Rebuild install.wim
       run: |
         mv iso/sources/install.wim iso/sources/install.wim.bak
         wimlib-imagex capture wim iso/sources/install.wim --compress=recovery
 
-    # ---- CREATE BOOTABLE ISO ----
+    # -----------------------------
+    # CREATE BOOTABLE ISO
+    # -----------------------------
     - name: Create Tiny11 Core ISO
       run: |
         grub-mkrescue -o tiny11-core.iso iso
 
-    # ---- UPLOAD RESULT ----
+    # -----------------------------
+    # UPLOAD ISO
+    # -----------------------------
     - name: Upload ISO artifact
       uses: actions/upload-artifact@v4
       with:
