@@ -1,0 +1,62 @@
+name: Build Tiny11 Core ISO (Cloud)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          wimtools \
+          grub-pc-bin \
+          grub-common \
+          xorriso \
+          wget \
+          rsync
+
+    - name: Download Windows 11 ISO
+      run: |
+        wget -O win11.iso https://software-download.microsoft.com/download/pr/Win11_24H2_English_x64.iso
+
+    - name: Extract ISO
+      run: |
+        mkdir iso mount
+        sudo mount -o loop win11.iso mount
+        rsync -a mount/ iso/
+        sudo umount mount
+
+    - name: Extract install.wim
+      run: |
+        mkdir wim
+        wimlib-imagex extract iso/sources/install.wim 1 --dest-dir=wim
+
+    - name: Core stripping (minimal)
+      run: |
+        rm -rf wim/Program\ Files*
+        rm -rf wim/Windows/SystemApps
+        rm -rf wim/Windows/Media
+        rm -rf wim/Windows/Web
+        rm -rf wim/Windows/WinSxS/Backup
+
+    - name: Rebuild install.wim
+      run: |
+        mv iso/sources/install.wim iso/sources/install.wim.bak
+        wimlib-imagex capture wim iso/sources/install.wim --compress=recovery
+
+    - name: Create ISO
+      run: |
+        grub-mkrescue -o tiny11-core.iso iso
+
+    - name: Upload ISO
+      uses: actions/upload-artifact@v4
+      with:
+        name: tiny11-core-iso
+        path: tiny11-core.iso
