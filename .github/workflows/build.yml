@@ -25,12 +25,12 @@ jobs:
           curl
 
     # -----------------------------
-    # DOWNLOAD UUP DUMP (NO GIT)
+    # DOWNLOAD UUP DUMP (FIXED)
     # -----------------------------
     - name: Download UUP Dump (Linux) via tarball
       run: |
         mkdir uup
-        curl -L https://github.com/uup-dump/uup-dump-linux/archive/refs/heads/master.tar.gz \
+        curl -L https://github.com/uup-dump/uup-dump-linux/archive/refs/heads/main.tar.gz \
           | tar -xz --strip-components=1 -C uup
         chmod +x uup/uup_download_linux.sh
 
