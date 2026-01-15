@@ -22,22 +22,24 @@ jobs:
           rsync \
           cabextract \
           aria2 \
-          curl
+          curl \
+          jq \
+          python3
 
-    # -----------------------------
-    # DOWNLOAD UUP DUMP (FIXED)
-    # -----------------------------
-    - name: Download UUP Dump (Linux) via tarball
+    # -------------------------------------------------
+    # DOWNLOAD REAL UUP DUMP (CORRECT REPO)
+    # -------------------------------------------------
+    - name: Download UUP Dump (official)
       run: |
         mkdir uup
-        curl -L https://github.com/uup-dump/uup-dump-linux/archive/refs/heads/main.tar.gz \
+        curl -L https://github.com/uup-dump/uup-dump/archive/refs/heads/master.tar.gz \
           | tar -xz --strip-components=1 -C uup
         chmod +x uup/uup_download_linux.sh
 
-    # -----------------------------
-    # BUILD WINDOWS 11 ISO (OFFICIAL)
-    # -----------------------------
-    - name: Build Windows 11 24H2 ISO from UUP
+    # -------------------------------------------------
+    # BUILD WINDOWS 11 ISO FROM OFFICIAL MICROSOFT UUP
+    # -------------------------------------------------
+    - name: Build Windows 11 24H2 ISO
       run: |
         cd uup
         ./uup_download_linux.sh \
@@ -47,9 +49,9 @@ jobs:
           Professional \
           iso
 
-    # -----------------------------
+    # -------------------------------------------------
     # EXTRACT ISO
-    # -----------------------------
+    # -------------------------------------------------
     - name: Extract Windows ISO
       run: |
         mkdir iso mount
@@ -57,17 +59,17 @@ jobs:
         rsync -a mount/ iso/
         sudo umount mount
 
-    # -----------------------------
+    # -------------------------------------------------
     # EXTRACT INSTALL.WIM
-    # -----------------------------
+    # -------------------------------------------------
     - name: Extract install.wim
       run: |
         mkdir wim
         wimlib-imagex extract iso/sources/install.wim 1 --dest-dir=wim
 
-    # -----------------------------
-    # CORE STRIPPING (SAFE)
-    # -----------------------------
+    # -------------------------------------------------
+    # CORE STRIPPING (SAFE MINIMAL)
+    # -------------------------------------------------
     - name: Tiny11 Core stripping
       run: |
         rm -rf wim/Program\ Files
@@ -79,24 +81,24 @@ jobs:
         rm -rf wim/Windows/WinSxS/Backup
         rm -rf wim/Users/Default/AppData
 
-    # -----------------------------
+    # -------------------------------------------------
     # REBUILD INSTALL.WIM
-    # -----------------------------
+    # -------------------------------------------------
     - name: Rebuild install.wim
       run: |
         mv iso/sources/install.wim iso/sources/install.wim.bak
         wimlib-imagex capture wim iso/sources/install.wim --compress=recovery
 
-    # -----------------------------
+    # -------------------------------------------------
     # CREATE BOOTABLE ISO
-    # -----------------------------
+    # -------------------------------------------------
     - name: Create Tiny11 Core ISO
       run: |
         grub-mkrescue -o tiny11-core.iso iso
 
-    # -----------------------------
-    # UPLOAD ISO
-    # -----------------------------
+    # -------------------------------------------------
+    # UPLOAD RESULT
+    # -------------------------------------------------
     - name: Upload ISO artifact
       uses: actions/upload-artifact@v4
       with:
